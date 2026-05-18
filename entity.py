@@ -1,12 +1,13 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from datetime import date
+import json
 
 
 @dataclass
 class Content:
     name: str
     amount: str
-    date = date.today().strftime("%m-%y") #Format: MM-YY
+    date: date = date.today()#Format: YYY-MM-DD #date.strftime("%m-%y") to get other format but then string type
 
 @dataclass
 class Area:
@@ -29,16 +30,53 @@ class Area:
         self.name = name
 
 
+
 #every Area created gets added to this
 allAreas: list[Area] = []
 
 
-#TODO safe allAreas here as JSON ig
-#saves to SavedLayout if no other path given
-def save(path:str = "SavedLayout"):
-    return
 
-#load from given path if none then tries from SavedLayout
-def load(path:str = "SavedLayout"):
-    return
+#saves to savedLayout if no other path given
+def save(path:str = "savedLayout.json"):
+    global allAreas
 
+    def converter(obj):
+        if isinstance(obj, date):
+            return obj.isoformat()
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
+    with open(path, "w") as f:
+        json.dump(
+            [asdict(area) for area in allAreas],
+            f,
+            default=converter,
+            indent=4
+        )
+    print("saved")
+
+#load from given path if none then tries from savedLayout
+def load(path:str = "savedLayout.json"):
+    global allAreas
+    allAreas.clear()
+
+    with open(path, "r") as f:
+        data = json.load(f)
+
+    for area_data in data:
+        contents = [
+            Content(
+                name=c["name"],
+                amount=c["amount"],
+                date=date.fromisoformat(c["date"])
+            )
+            for c in area_data["content"]
+        ]
+
+        area = Area(
+            name=area_data["name"],
+            content=contents
+        )
+
+        allAreas.append(area)
+    print("loaded")
