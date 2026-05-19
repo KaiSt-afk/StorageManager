@@ -1,0 +1,36 @@
+[build-system]
+requires = ["briefcase"]
+build-backend = "briefcase.build_system"
+
+[tool.briefcase]
+project_name = "Storage Manager"
+bundle = "com.example"
+version = "0.0.1"
+url = "https://example.com/storage-manager"
+license = "MIT"
+license-files = ["LICENSE"]
+author = "Kai"
+author_email = "chaihawaiikai@gmail.com"
+
+[tool.briefcase.app.StorageManager]
+formal_name = "Storage Manager"
+description = "A storage management app built with BeeWare and Toga"
+sources = ["src/StorageManager"]
+requires = [
+    "toga", "briefcase", "dataclasses", "datetime"
+]
+
+[tool.briefcase.app.StorageManager.macOS]
+requires = []
+
+[tool.briefcase.app.StorageManager.windows]
+requires = []
+
+[tool.briefcase.app.StorageManager.linux]
+requires = []
+
+[tool.briefcase.app.StorageManager.android]
+requires = []
+
+[tool.briefcase.app.StorageManager.iOS]
+requires = []

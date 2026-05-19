@@ -2,7 +2,7 @@ import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
 
-import entity
+from src.StorageManager import entity
 
 
 class StorageApp(toga.App):
@@ -23,13 +23,41 @@ class StorageApp(toga.App):
         button_row.add(load_button)
         button_row.add(save_button)
 
+        saveLoad = toga.Group("save/Load")
+        saveto = toga.Command(
+            self.saveDifferentLocation,
+            text="Save to..",
+            tooltip="Save to..",
+            group=saveLoad,
+        )
+        loadfrom = toga.Command(
+            self.loadDifferentLocation,
+            text="Load from..",
+            tooltip="Load from..",
+            group=saveLoad,
+        )
+
         main_box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
         main_box.add(button_row)
         main_box.add(self.main_area_box)
         main_box.add(self.error_label)
+        self.commands.add(saveto, loadfrom)
 
         self.main_window.content = main_box
         self.main_window.show()
+
+    #pick other location and change name if wanted
+    async def saveDifferentLocation(self, widget):
+        path = await self.main_window.save_file_dialog(title="Save as",
+                                                       suggested_filename="savedLayout.json")
+        entity.save(path)
+
+
+    #pick other file to load from apparently not working on mobil
+    async def loadDifferentLocation(self, widget):
+        path = await self.main_window.open_file_dialog(title="Choose a file")
+        entity.load(path)
+        self.refresh_areas()
 
     #load from savedLayout and refreshes the gui
     def loadAndRefresh(self):
@@ -183,7 +211,8 @@ class StorageApp(toga.App):
             datestr = content.date.strftime("%m - %y")
             labelstr = f"{content.name}   {content.amount} {content.unit}    Date: {datestr}"
             label = toga.Label(labelstr, style=Pack(flex=1))
-            removeAllButton = toga.Button("remove All", on_press=lambda w, idx=j: self.delete_content(entity.allAreas[i].content, idx))
+            removeAllButton = toga.Button("remove All", on_press=lambda w, idx=j: self.delete_content(
+                entity.allAreas[i].content, idx))
 
             remove1Button = toga.Button("remove 1", on_press=lambda w, idx=j: self.rmAmount(entity.allAreas[i].content, idx))
 
