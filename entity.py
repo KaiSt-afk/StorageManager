@@ -16,9 +16,10 @@ class Area:
     content : list[Content] = field(default_factory=list)
 
     def create(name: str):
-        area = Area(name)
-        allAreas.append(area)
-        return area
+        if not any(area.name == name for area in allAreas):
+            area = Area(name)
+            allAreas.append(area)
+            return area
 
     def addContent(self, con: Content):
         self.content.append(con)
@@ -28,6 +29,8 @@ class Area:
             self.content.remove(con)
 
     def changeName(self, name: str):
+        if any(area for area in allAreas if area.name == name):
+            return
         self.name = name
 
 
