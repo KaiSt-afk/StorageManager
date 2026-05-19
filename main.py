@@ -7,9 +7,8 @@ import entity
 
 class StorageApp(toga.App):
     def startup(self):
-
         self.main_window = toga.MainWindow(title="Storage Manager")
-        self.area_box = toga.Box(style=Pack(direction=COLUMN, gap= 5))
+        self.main_area_box = toga.Box(style=Pack(direction=COLUMN, gap= 5))
 
         #buttons in the main Window
         add_button = toga.Button("Add Area", on_press=self.addAreaGUI)
@@ -23,7 +22,7 @@ class StorageApp(toga.App):
 
         main_box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
         main_box.add(button_row)
-        main_box.add(self.area_box)
+        main_box.add(self.main_area_box)
 
         self.main_window.content = main_box
         self.main_window.show()
@@ -68,29 +67,127 @@ class StorageApp(toga.App):
 
     #renders the displayed areas again
     def refresh_areas(self):
-        self.area_box.clear()
+        self.main_area_box.clear()
         print(entity.allAreas)
         if not entity.allAreas:
-            self.area_box.add(toga.Label("No areas yet."))
+            self.main_area_box.add(toga.Label("No areas yet."))
             return
 
-        for idx, area in enumerate(entity.allAreas):
+        for i, area in enumerate(entity.allAreas):
             row = toga.Box(style=Pack(direction=ROW, gap=10, margin=5))
 
             label = toga.Label(area.name, style=Pack(flex=1))
-            delete_button = toga.Button("Delete", on_press=lambda w, i=idx: self.delete_area(i))
+            delete_button = toga.Button("Delete", on_press=lambda w, idx=i: self.delete_area(idx))
 
-            checkoutButton = toga.Button("Checkout", on_press=lambda w, i=idx: print("TODO"))
+            checkoutButton = toga.Button("Checkout", on_press=lambda w, idx=i: self.checkoutArea(idx))
 
             row.add(label)
             row.add(checkoutButton)
             row.add(delete_button)
-            self.area_box.add(row)
+            self.main_area_box.add(row)
 
     #removes area and refreshes the gui
     def delete_area(self, index):
         entity.allAreas.pop(index)
         self.refresh_areas()
+
+    #END main Window
+
+    #Window inside of areas get index of which area from entity.allAreas
+    def checkoutArea(self, i):
+        cArea = entity.allAreas[i]
+        self.current_Area_Index = i
+        self.checkout_window = toga.MainWindow(title="Area: "+ cArea.name)
+        self.checkout_content_box = toga.Box(style=Pack(direction=COLUMN, gap= 5))
+        self.refresh_content()
+
+        self.name_input = toga.TextInput(
+            placeholder="Enter Content name",
+            style=Pack(flex=1)
+        )
+        self.amount_input = toga.NumberInput(
+            value= 0,
+            style=Pack(flex=1)
+        )
+        self.unit_input = toga.TextInput(
+            placeholder="Enter Unit",
+            style=Pack(flex=1)
+        )
+
+        input_row = toga.Box(style=Pack(direction=ROW, gap=10))
+        input_row.add(self.name_input, self.amount_input, self.unit_input)
+
+        def add_Content(widget):
+            name = self.name_input.value.strip()
+            amount = int(self.amount_input.value)
+            unit = self.unit_input.value.strip()
+            if name and unit:
+                entity.allAreas[self.current_Area_Index].content.append(entity.Content(name, amount, unit))
+                entity.allAreas[self.current_Area_Index].content.sort(key= lambda c: c.name)
+                self.refresh_content()
+
+
+        addContent_button = toga.Button("Add Content", on_press=add_Content)
+        back_button = toga.Button("Go Back", on_press=lambda w: self.checkout_window.close())
+
+        button_row = toga.Box(style=Pack(direction=ROW, gap=10))
+        button_row.add(addContent_button)
+        button_row.add(back_button)
+
+        box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
+        box.add(toga.Label("Add Content:"))
+        box.add(input_row)
+        box.add(button_row)
+        box.add(self.checkout_content_box)
+
+        self.checkout_window.content = box
+        self.checkout_window.show()
+
+    #renders the displayed content again
+    def refresh_content(self):
+        i = self.current_Area_Index
+        self.checkout_content_box.clear()
+        print(entity.allAreas[i].content)
+        if not entity.allAreas[i].content:
+            self.checkout_content_box.add(toga.Label("No content yet."))
+            return
+
+        for j, content in enumerate(entity.allAreas[i].content):
+            row = toga.Box(style=Pack(direction=ROW, gap=10, margin=5))
+            datestr = content.date.strftime("%m - %y")
+            labelstr = f"{content.name}   {content.amount} {content.unit}    Date: {datestr}"
+            label = toga.Label(labelstr, style=Pack(flex=1))
+            removeAllButton = toga.Button("remove All", on_press=lambda w, idx=j: self.delete_content(entity.allAreas[i].content, idx))
+
+            remove1Button = toga.Button("remove 1", on_press=lambda w, idx=j: self.rmAmount(entity.allAreas[i].content, idx))
+
+            add1Button = toga.Button("add 1", on_press=lambda w, idx=j: self.addAmount(entity.allAreas[i].content, idx))
+
+            row.add(label)
+            row.add(add1Button)
+            row.add(remove1Button)
+            row.add(removeAllButton)
+            self.checkout_content_box.add(row)
+
+
+    #removes content and refreshes the gui argument is the content and index to remove
+    def delete_content(self, content, idx):
+        content.pop(idx)
+        self.refresh_content()
+
+    #amount to remove from given content at index, default is 1
+    def rmAmount(self, content, idx, amountremove = 1):
+        content[idx].amount = content[idx].amount - amountremove
+        self.refresh_content()
+
+    #amount to add to given content at index, default is 1
+    def addAmount(self, content, idx, amountadd = 1):
+        content[idx].amount = content[idx].amount + amountadd
+        self.refresh_content()
+
+    #END Window checkout Area
+
+
 
 
 def main():

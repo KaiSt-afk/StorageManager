@@ -6,7 +6,8 @@ import json
 @dataclass
 class Content:
     name: str
-    amount: str
+    amount: int
+    unit: str
     date: date = date.today()#Format: YYY-MM-DD #date.strftime("%m-%y") to get other format but then string type
 
 @dataclass
@@ -68,6 +69,7 @@ def load(path:str = "savedLayout.json"):
             Content(
                 name=c["name"],
                 amount=c["amount"],
+                unit=c["unit"],
                 date=date.fromisoformat(c["date"])
             )
             for c in area_data["content"]
