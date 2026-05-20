@@ -17,7 +17,7 @@ formal_name = "Storage Manager"
 description = "A storage management app built with BeeWare and Toga"
 sources = ["src/StorageManager"]
 requires = [
-    "toga", "briefcase", "dataclasses", "datetime"
+    "toga"
 ]
 
 [tool.briefcase.app.StorageManager.macOS]
