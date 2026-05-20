@@ -2,9 +2,9 @@ import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
 
-from src.StorageManager import entity
+import entity
 
-
+#TODO everything needs to be in one window only content changes and Dialaog boxes are fine
 class StorageApp(toga.App):
     def startup(self):
         self.main_window = toga.MainWindow(title="Storage Manager")
@@ -37,13 +37,13 @@ class StorageApp(toga.App):
             group=saveLoad,
         )
 
-        main_box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
-        main_box.add(button_row)
-        main_box.add(self.main_area_box)
-        main_box.add(self.error_label)
+        self.main_box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
+        self.main_box.add(button_row)
+        self.main_box.add(self.main_area_box)
+        self.main_box.add(self.error_label)
         self.commands.add(saveto, loadfrom)
 
-        self.main_window.content = main_box
+        self.main_window.content = self.main_box
         self.main_window.show()
 
     #pick other location and change name if wanted
@@ -51,7 +51,6 @@ class StorageApp(toga.App):
         path = await self.main_window.save_file_dialog(title="Save as",
                                                        suggested_filename="savedLayout.json")
         entity.save(path)
-
 
     #pick other file to load from apparently not working on mobil
     async def loadDifferentLocation(self, widget):
@@ -64,6 +63,7 @@ class StorageApp(toga.App):
         entity.load()
         self.refresh_areas()
 
+    #TODO remove as own Window maybe as Dialog window???
     #add a new Area to store Content in
     def addAreaGUI(self, widget):
         self.add_window = toga.Window(title="Create Area", size=(320, 180))
@@ -131,11 +131,12 @@ class StorageApp(toga.App):
 
     #END main Window
 
+
+
     #Window inside of areas get index of which area from entity.allAreas
     def checkoutArea(self, i):
         cArea = entity.allAreas[i]
         self.current_Area_Index = i
-        self.checkout_window = toga.MainWindow(title="Area: "+ cArea.name)
         self.checkout_content_box = toga.Box(style=Pack(direction=COLUMN, gap= 5))
         self.refresh_content()
 
@@ -168,11 +169,14 @@ class StorageApp(toga.App):
             if name and unit:
                 entity.allAreas[self.current_Area_Index].content.append(entity.Content(name, amount, unit))
                 entity.allAreas[self.current_Area_Index].content.sort(key= lambda c: c.name)
+                self.name_input.value = ""
+                self.amount_input.value = 0
+                self.unit_input.value = ""
                 self.refresh_content()
 
         #closes checkout Window and refreshes Area to update if a name changed
         def goBack(widget):
-            self.checkout_window.close()
+            self.main_window.content = self.main_box
             self.refresh_areas()
 
         addContent_button = toga.Button("Add Content", on_press=add_Content)
@@ -182,8 +186,10 @@ class StorageApp(toga.App):
         button_row.add(addContent_button)
         button_row.add(back_button)
 
+        self.checkout_name_label = toga.Label(f"Add Content to {entity.allAreas[i].name}:")
+
         box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
-        box.add(toga.Label("Add Content:"))
+        box.add(self.checkout_name_label)
         box.add(input_row)
         box.add(button_row)
         box.add(self.checkout_content_box)
@@ -193,8 +199,7 @@ class StorageApp(toga.App):
         box.add(self.areaName_input)
         box.add(areaNameButton)
 
-        self.checkout_window.content = box
-        self.checkout_window.show()
+        self.main_window.content = box
 
     #renders the displayed content again
     def refresh_content(self):
@@ -248,7 +253,7 @@ class StorageApp(toga.App):
             self.error_label.text = "Name already exists."
         else:
             entity.allAreas[self.current_Area_Index].changeName(name)
-            self.checkout_window.title = "Area: " + name
+            self.checkout_name_label.text= f"Add Content to {name}:"
             self.areaName_input.value = ""
             self.error_label.text = ""
 
@@ -257,7 +262,6 @@ class StorageApp(toga.App):
 
     #create a overview for content in all Areas (not adding them up)
     def overviewContent(self, widget):
-        self.overview_window = toga.MainWindow(title="Overview")
         tableData = []
         #add all data as tuples in a list
         for area in entity.allAreas:
@@ -270,13 +274,14 @@ class StorageApp(toga.App):
         contentTable = toga.Table(columns=["area", "content", "amount", "unit", "date"], data=tableData, style=Pack(flex=1),
                                   on_select=self.openAreaCheckout)
         box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
-        back_button = toga.Button("Go Back", on_press=lambda w: self.overview_window.close())
+        back_button = toga.Button("Go Back", on_press=self.changeToMainWindow)
 
         box.add(back_button)
         box.add(contentTable)
-        self.overview_window.content = box
-        self.overview_window.show()
+        self.main_window.content = box
 
+    def changeToMainWindow(self, widget):
+        self.main_window.content = self.main_box
 
     #when click on a row in table then open the area of this row and close overview window
     def openAreaCheckout(self, widget):
@@ -288,7 +293,6 @@ class StorageApp(toga.App):
             return
 
         idx = next(i for i, a in enumerate(entity.allAreas) if a.name == area.name)
-        self.overview_window.close()
         self.checkoutArea(idx)
 
     #END overview Window
