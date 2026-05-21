@@ -1,10 +1,14 @@
+from dataclasses import dataclass, field, asdict
+from datetime import date
+import json
+
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
 
-import entity
+from . import entity
+#import entity
 
-#TODO everything needs to be in one window only content changes and Dialaog boxes are fine
 class StorageApp(toga.App):
     def startup(self):
         self.main_window = toga.MainWindow(title="Storage Manager")
@@ -15,7 +19,7 @@ class StorageApp(toga.App):
         add_button = toga.Button("Add Area", on_press=self.addAreaGUI)
         overview_button = toga.Button("Overview", on_press=self.overviewContent)
         load_button = toga.Button("Load", on_press=lambda widget: self.loadAndRefresh())
-        save_button = toga.Button("Save", on_press=lambda widget: entity.save())
+        save_button = toga.Button("Save", on_press=self.save)
 
         button_row = toga.Box(style=Pack(direction=ROW, gap=10))
         button_row.add(add_button)
@@ -52,7 +56,7 @@ class StorageApp(toga.App):
                                                        suggested_filename="savedLayout.json")
         entity.save(path)
 
-    #pick other file to load from apparently not working on mobil
+    #pick other file to load from not working on mobil !!!!!!!!!!!!!!!!!
     async def loadDifferentLocation(self, widget):
         path = await self.main_window.open_file_dialog(title="Choose a file")
         entity.load(path)
@@ -60,20 +64,61 @@ class StorageApp(toga.App):
 
     #load from savedLayout and refreshes the gui
     def loadAndRefresh(self):
-        entity.load()
+        self.load()
         self.refresh_areas()
 
-    #TODO remove as own Window maybe as Dialog window???
+    # saves to savedLayout if no other path given
+    def save(self, widget):
+        path = self.paths.data / "savedLayout.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        def converter(obj):
+            if isinstance(obj, date):
+                return obj.isoformat()
+            raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+        data = [asdict(area) for area in entity.allAreas]
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, default=converter, indent=4)
+        #print("saved")
+
+    # load from given path if none then tries from savedLayout
+    def load(self):
+        entity.allAreas.clear()
+        path = self.paths.data / "savedLayout.json"
+
+        with open(path, "r") as f:
+            data = json.load(f)
+
+        for area_data in data:
+            contents = [
+                entity.Content(
+                    name=c["name"],
+                    amount=c["amount"],
+                    unit=c["unit"],
+                    date=date.fromisoformat(c["date"])
+                )
+                for c in area_data["content"]
+            ]
+
+            area = entity.Area(
+                name=area_data["name"],
+                content=contents
+            )
+
+            entity.allAreas.append(area)
+        #print("loaded")
+
     #add a new Area to store Content in
     def addAreaGUI(self, widget):
-        self.add_window = toga.Window(title="Create Area", size=(320, 180))
-
         self.name_input = toga.TextInput(
             placeholder="Enter area name",
             style=Pack(flex=1)
         )
         self.error_label = toga.Label("", style=Pack(color="red"))
 
+        #add area when name entered and valid
         def create_area(widget):
             name = self.name_input.value.strip()
             if not name or any(area.name == name for area in entity.allAreas):
@@ -81,11 +126,10 @@ class StorageApp(toga.App):
             else:
                 entity.Area.create(name)
                 self.refresh_areas()
-                self.add_window.close()
-
+                self.main_window.content = self.main_box
 
         create_button = toga.Button("Create", on_press=create_area)
-        cancel_button = toga.Button("Cancel", on_press=lambda w: self.add_window.close())
+        cancel_button = toga.Button("Cancel", on_press=self.goBack)
 
         button_row = toga.Box(style=Pack(direction=ROW, gap=10))
         button_row.add(create_button)
@@ -97,16 +141,19 @@ class StorageApp(toga.App):
         box.add(self.error_label)
         box.add(button_row)
 
-        self.add_window.content = box
-        self.add_window.show()
+        self.main_window.content = box
 
+    #reopen main window
+    def goBack(self, widget):
+        self.main_window.content = self.main_box
+        self.refresh_areas()
 
 
     #renders the displayed areas again
     def refresh_areas(self):
         self.main_area_box.clear()
         self.error_label.text = ""
-        print(entity.allAreas)
+        #print(entity.allAreas)
         if not entity.allAreas:
             self.main_area_box.add(toga.Label("No areas yet."))
             return
@@ -206,7 +253,7 @@ class StorageApp(toga.App):
         i = self.current_Area_Index
         self.checkout_content_box.clear()
         self.error_label.text = ""
-        print(entity.allAreas[i].content)
+        #print(entity.allAreas[i].content)
         if not entity.allAreas[i].content:
             self.checkout_content_box.add(toga.Label("No content yet."))
             return
@@ -281,6 +328,7 @@ class StorageApp(toga.App):
         self.main_window.content = box
 
     def changeToMainWindow(self, widget):
+        self.error_label.text = ""
         self.main_window.content = self.main_box
 
     #when click on a row in table then open the area of this row and close overview window
