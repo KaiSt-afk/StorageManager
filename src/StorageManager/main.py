@@ -1,13 +1,14 @@
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict
 from datetime import date
 import json
+from functools import partial
+from smb.SMBConnection import SMBConnection
 
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
 
-from . import entity
-#import entity
+from StorageManager import entity
 
 class StorageApp(toga.App):
     def startup(self):
@@ -18,14 +19,23 @@ class StorageApp(toga.App):
         #buttons in the main Window
         add_button = toga.Button("Add Area", on_press=self.addAreaGUI)
         overview_button = toga.Button("Overview", on_press=self.overviewContent)
-        load_button = toga.Button("Load", on_press=lambda widget: self.loadAndRefresh())
+        load_button = toga.Button("Load", on_press=self.load)
         save_button = toga.Button("Save", on_press=self.save)
+        export_button = toga.Button("Export", on_press=self.exportNAS)
+        import_button = toga.Button("Import", on_press=self.importNAS)
+        remoteConfig_button = toga.Button("Set Config", on_press=self.remoteConfig)
 
+        #one row for save/load buttons
+        saveload_row = toga.Box(style=Pack(direction=ROW, gap=10))
+        saveload_row.add(load_button)
+        saveload_row.add(save_button)
+        saveload_row.add(export_button)
+        saveload_row.add(import_button)
+        saveload_row.add(remoteConfig_button)
+        #one row for app buttons
         button_row = toga.Box(style=Pack(direction=ROW, gap=10))
         button_row.add(add_button)
         button_row.add(overview_button)
-        button_row.add(load_button)
-        button_row.add(save_button)
 
         saveLoad = toga.Group("save/Load")
         saveto = toga.Command(
@@ -41,7 +51,30 @@ class StorageApp(toga.App):
             group=saveLoad,
         )
 
+        #params for export to set and use in in/export if remoteConfig exists load it else default values
+        self.local_path = self.paths.data / "savedLayout.json"
+        self.configPath = self.paths.data / "remoteConfig.json"
+        if self.configPath.is_file():
+            with open(self.configPath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.server_ip = data["server_ip"]
+            self.server_name = data["server_name"]
+            self.share_name = data["share_name"]
+            self.port = data["port"]
+            self.remote_path = data["remote_path"]
+            self.username = data["username"]
+            self.password = data["password"]
+        else:
+            self.server_ip = "192.168.178.1"
+            self.server_name = "FRITZ!Box 7490"
+            self.share_name = "FRITZ.NAS"
+            self.port= 445
+            self.remote_path = "StorageManager/savedLayout.json"
+            self.username = "StorageManager"
+            self.password = ""
+
         self.main_box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
+        self.main_box.add(saveload_row)
         self.main_box.add(button_row)
         self.main_box.add(self.main_area_box)
         self.main_box.add(self.error_label)
@@ -49,6 +82,8 @@ class StorageApp(toga.App):
 
         self.main_window.content = self.main_box
         self.main_window.show()
+
+
 
     #pick other location and change name if wanted
     async def saveDifferentLocation(self, widget):
@@ -62,12 +97,7 @@ class StorageApp(toga.App):
         entity.load(path)
         self.refresh_areas()
 
-    #load from savedLayout and refreshes the gui
-    def loadAndRefresh(self):
-        self.load()
-        self.refresh_areas()
-
-    # saves to savedLayout if no other path given
+    #saves to savedLayout
     def save(self, widget):
         path = self.paths.data / "savedLayout.json"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,8 +113,8 @@ class StorageApp(toga.App):
             json.dump(data, f, default=converter, indent=4)
         #print("saved")
 
-    # load from given path if none then tries from savedLayout
-    def load(self):
+    #load from savedLayout and refreshes the gui
+    def load(self, widget):
         entity.allAreas.clear()
         path = self.paths.data / "savedLayout.json"
 
@@ -108,7 +138,135 @@ class StorageApp(toga.App):
             )
 
             entity.allAreas.append(area)
+        self.refresh_areas()
         #print("loaded")
+
+    #export to NAS params set in local_path, server_ip, server_name, remote_path, username, password
+    async def exportNAS(self, widget):
+        self.save(widget)
+        #export the currently local saved file to NAS
+        conn = SMBConnection(
+            self.username,
+            self.password,
+            "StorageManagerClient",
+            self.server_name,
+            use_ntlm_v2=True,
+            is_direct_tcp=True
+        )
+        try:
+            conn.connect(self.server_ip, self.port)
+            with open(self.local_path, "rb") as f:
+                conn.storeFile(self.share_name, self.remote_path, f)
+            conn.close()
+        except:
+            await self.main_window.dialog(toga.InfoDialog("Connection failed", "check Parameter"))
+
+
+    #import from NAS params set in local_path, server_ip, server_name, remote_path, username, password
+    async def importNAS(self, widget):
+        #import from NAS to the currently local file
+        conn = SMBConnection(
+            self.username,
+            self.password,
+            "StorageManagerClient",
+            self.server_name,
+            use_ntlm_v2=True,
+            is_direct_tcp=True
+        )
+        try:
+            conn.connect(self.server_ip, self.port)
+            with open(self.local_path, "wb") as f:
+                conn.retrieveFile(self.share_name, self.remote_path, f)
+            conn.close()
+            self.load(widget)
+        except Exception as e:
+            await self.main_window.dialog(toga.InfoDialog("Connection failed", "check Parameter"))
+
+    #lets user set all Config Params
+    def remoteConfig(self, widget):
+        #sets the current config and saves it
+        def saveConfig(widget):
+            sip = self.serverIPInput.value.strip()
+            sn = self.serverNameInput.value.strip()
+            shn = self.shareNameInput.value.strip()
+            po = self.portInput.value
+            rp = self.remotePathInput.value.strip()
+            un = self.usernameInput.value.strip()
+            pw = self.passwordInput.value.strip()
+            if sip:
+                self.server_ip = sip
+            if sn:
+                self.server_name = sn
+            if shn:
+                self.share_name = shn
+            if po:
+                self.port = int(po)
+            if rp:
+                self.remote_path = rp
+            if un:
+                self.username = un
+            if pw:
+                self.password = pw
+            path = self.paths.data / "remoteConfig.json"
+            data = {
+                "server_ip": self.server_ip,
+                "server_name": self.server_name,
+                "share_name": self.share_name,
+                "port": int(self.port),
+                "remote_path": self.remote_path,
+                "username": self.username,
+                "password": self.password,
+            }
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+
+        #removes Config file but keeps Config while app is running
+        def rmConfig(widget):
+            if self.configPath.is_file():
+                self.configPath.unlink()
+        #create Input Field for each Param
+        serverIPLabel = toga.Label("Server IP:")
+        self.serverIPInput = toga.TextInput(placeholder=self.server_ip)
+        serverNameLabel = toga.Label("Server Name:")
+        self.serverNameInput = toga.TextInput(placeholder=self.server_name)
+        shareNameLabel = toga.Label("Share Name:")
+        self.shareNameInput = toga.TextInput(placeholder=self.share_name)
+        portLabel = toga.Label("Port:")
+        self.portInput = toga.NumberInput(value=self.port)
+        remotePathLabel = toga.Label("remote Path: ")
+        self.remotePathInput = toga.TextInput(placeholder=self.remote_path)
+        usernameLabel = toga.Label("Username:")
+        self.usernameInput = toga.TextInput(placeholder=self.username)
+        passwordLabel = toga.Label("Password:")
+        self.passwordInput = toga.TextInput(placeholder="Enter Password")
+        goBack = toga.Button("Go Back", on_press=self.changeToMainWindow)
+        setConfig = toga.Button("Set Config", on_press=saveConfig)
+        removeConfig = toga.Button("remove Config", on_press=rmConfig)
+
+        button_row = toga.Box(style=Pack(direction=ROW, gap=10))
+        button_row.add(setConfig)
+        button_row.add(goBack)
+        button_row.add(removeConfig)
+
+        box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
+        box.add(serverIPLabel)
+        box.add(self.serverIPInput)
+        box.add(serverNameLabel)
+        box.add(self.serverNameInput)
+        box.add(shareNameLabel)
+        box.add(self.shareNameInput)
+        box.add(portLabel)
+        box.add(self.portInput)
+        box.add(remotePathLabel)
+        box.add(self.remotePathInput)
+        box.add(usernameLabel)
+        box.add(self.usernameInput)
+        box.add(passwordLabel)
+        box.add(self.passwordInput)
+        box.add(self.error_label)
+        box.add(button_row)
+
+        self.main_window.content = box
 
     #add a new Area to store Content in
     def addAreaGUI(self, widget):
@@ -162,8 +320,7 @@ class StorageApp(toga.App):
             row = toga.Box(style=Pack(direction=ROW, gap=10, margin=5))
 
             label = toga.Label(area.name, style=Pack(flex=1))
-            delete_button = toga.Button("Delete", on_press=lambda w, idx=i: self.delete_area(idx))
-
+            delete_button = toga.Button("Delete", on_press=partial(self.delete_area, index= i))
             checkoutButton = toga.Button("Checkout", on_press=lambda w, idx=i: self.checkoutArea(idx))
 
             row.add(label)
@@ -172,9 +329,11 @@ class StorageApp(toga.App):
             self.main_area_box.add(row)
 
     #removes area and refreshes the gui
-    def delete_area(self, index):
-        entity.allAreas.pop(index)
-        self.refresh_areas()
+    async def delete_area(self, widget, index):
+        confirm = await self.main_window.dialog(toga.QuestionDialog("Delete area", "Do you really want to delete this area?"))
+        if confirm:
+            entity.allAreas.pop(index)
+            self.refresh_areas()
 
     #END main Window
 
