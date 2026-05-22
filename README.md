@@ -35,6 +35,7 @@ project/
 - Python 3.x
 - BeeWare / Toga
 - Briefcase
+- pysmb
 
 ## Installation
 
@@ -55,11 +56,7 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-Install dependencies: TODOooooooooooooo
 
-```bash
-pip install -r requirements.txt
-```
 
 ## Running the app
 
