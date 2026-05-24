@@ -1,5 +1,6 @@
+import asyncio
 from dataclasses import asdict
-from datetime import date
+from datetime import date, datetime
 import json
 from functools import partial
 from smb.SMBConnection import SMBConnection
@@ -15,6 +16,7 @@ class StorageApp(toga.App):
         self.main_window = toga.MainWindow(title="Storage Manager")
         self.main_area_box = toga.Box(style=Pack(direction=COLUMN, gap= 5))
         self.error_label = toga.Label("", style=Pack(color="red"))
+        self.importLabel = toga.Label("")
 
         #buttons in the main Window
         add_button = toga.Button("Add Area", on_press=self.addAreaGUI)
@@ -76,12 +78,15 @@ class StorageApp(toga.App):
         self.main_box = toga.Box(style=Pack(direction=COLUMN, margin=10, gap=10))
         self.main_box.add(saveload_row)
         self.main_box.add(button_row)
+        self.main_box.add(self.importLabel)
         self.main_box.add(self.main_area_box)
         self.main_box.add(self.error_label)
         self.commands.add(saveto, loadfrom)
 
         self.main_window.content = self.main_box
         self.main_window.show()
+
+        asyncio.create_task(self.importNAS(None))
 
 
 
@@ -108,6 +113,7 @@ class StorageApp(toga.App):
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
         data = [asdict(area) for area in entity.allAreas]
+        data.append({"Importdate" : self.importLabel.text})
 
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, default=converter, indent=4)
@@ -121,7 +127,7 @@ class StorageApp(toga.App):
         with open(path, "r") as f:
             data = json.load(f)
 
-        for area_data in data:
+        for area_data in data[:-1]: #last item is importdate
             contents = [
                 entity.Content(
                     name=c["name"],
@@ -138,6 +144,8 @@ class StorageApp(toga.App):
             )
 
             entity.allAreas.append(area)
+        importDate = data[-1].get("Importdate", "")
+        self.importLabel.text = importDate
         self.refresh_areas()
         #print("loaded")
 
@@ -174,12 +182,14 @@ class StorageApp(toga.App):
             is_direct_tcp=True
         )
         try:
-            conn.connect(self.server_ip, self.port)
+            conn.connect(self.server_ip, self.port, timeout=15)
             with open(self.local_path, "wb") as f:
                 conn.retrieveFile(self.share_name, self.remote_path, f)
             conn.close()
             self.load(widget)
+            self.importLabel.text = datetime.now().strftime("%d-%m-%y %H:%M")
         except Exception as e:
+            print(e)
             await self.main_window.dialog(toga.InfoDialog("Connection failed", "check Parameter"))
 
     #lets user set all Config Params
