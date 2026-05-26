@@ -56,6 +56,11 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
+## Dependencies
+
+```bash
+pip install briefcase
+```
 
 
 ## Running the app

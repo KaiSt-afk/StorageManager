@@ -454,11 +454,13 @@ class StorageApp(toga.App):
     #amount to remove from given content at index, default is 1
     def rmAmount(self, content, idx, amountremove = 1):
         content[idx].amount = content[idx].amount - amountremove
+        content[idx].date = date.today()
         self.refresh_content()
 
     #amount to add to given content at index, default is 1
     def addAmount(self, content, idx, amountadd = 1):
         content[idx].amount = content[idx].amount + amountadd
+        content[idx].date = date.today()
         self.refresh_content()
 
     #changing name and check if name already exists
