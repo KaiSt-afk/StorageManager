@@ -83,7 +83,9 @@ class StorageApp(toga.App):
         self.main_box.add(self.error_label)
         self.commands.add(saveto, loadfrom)
 
-        self.main_window.content = self.main_box
+        self.mainscroll = toga.ScrollContainer(content=self.main_box)
+
+        self.main_window.content = self.mainscroll
         self.main_window.show()
 
         asyncio.create_task(self.importNAS(None))
@@ -276,7 +278,8 @@ class StorageApp(toga.App):
         box.add(self.error_label)
         box.add(button_row)
 
-        self.main_window.content = box
+        boxscroll = toga.ScrollContainer(content=box)
+        self.main_window.content = boxscroll
 
     #add a new Area to store Content in
     def addAreaGUI(self, widget):
@@ -294,7 +297,7 @@ class StorageApp(toga.App):
             else:
                 entity.Area.create(name)
                 self.refresh_areas()
-                self.main_window.content = self.main_box
+                self.main_window.content = self.mainscroll
 
         create_button = toga.Button("Create", on_press=create_area)
         cancel_button = toga.Button("Cancel", on_press=self.goBack)
@@ -309,11 +312,12 @@ class StorageApp(toga.App):
         box.add(self.error_label)
         box.add(button_row)
 
-        self.main_window.content = box
+        boxscroll = toga.ScrollContainer(content=box)
+        self.main_window.content = boxscroll
 
     #reopen main window
     def goBack(self, widget):
-        self.main_window.content = self.main_box
+        self.main_window.content = self.mainscroll
         self.refresh_areas()
 
 
@@ -392,7 +396,7 @@ class StorageApp(toga.App):
 
         #closes checkout Window and refreshes Area to update if a name changed
         def goBack(widget):
-            self.main_window.content = self.main_box
+            self.main_window.content = self.mainscroll
             self.refresh_areas()
 
         addContent_button = toga.Button("Add Content", on_press=add_Content)
@@ -415,7 +419,8 @@ class StorageApp(toga.App):
         box.add(self.areaName_input)
         box.add(areaNameButton)
 
-        self.main_window.content = box
+        boxscroll = toga.ScrollContainer(content=box)
+        self.main_window.content = boxscroll
 
     #renders the displayed content again
     def refresh_content(self):
@@ -496,11 +501,12 @@ class StorageApp(toga.App):
 
         box.add(back_button)
         box.add(contentTable)
-        self.main_window.content = box
+        boxscroll = toga.ScrollContainer(content=box)
+        self.main_window.content = boxscroll
 
     def changeToMainWindow(self, widget):
         self.error_label.text = ""
-        self.main_window.content = self.main_box
+        self.main_window.content = self.mainscroll
 
     #when click on a row in table then open the area of this row and close overview window
     def openAreaCheckout(self, widget):
