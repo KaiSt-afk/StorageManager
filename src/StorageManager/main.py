@@ -343,6 +343,8 @@ class StorageApp(toga.App):
             row.add(delete_button)
             self.main_area_box.add(row)
 
+        asyncio.create_task(self.exportNAS(self))
+
     #removes area and refreshes the gui
     async def delete_area(self, widget, index):
         confirm = await self.main_window.dialog(toga.QuestionDialog("Delete area", "Do you really want to delete this area?"))
@@ -450,6 +452,8 @@ class StorageApp(toga.App):
             row.add(remove1Button)
             row.add(removeAllButton)
             self.checkout_content_box.add(row)
+
+        asyncio.create_task(self.exportNAS(self))
 
 
     #removes content and refreshes the gui argument is the content and index to remove
