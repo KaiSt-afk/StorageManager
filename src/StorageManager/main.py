@@ -85,6 +85,7 @@ class StorageApp(toga.App):
 
         self.mainscroll = toga.ScrollContainer(content=self.main_box)
 
+        self.main_window.on_close = self.on_close
         self.main_window.content = self.mainscroll
         self.main_window.show()
 
@@ -521,6 +522,14 @@ class StorageApp(toga.App):
         self.checkoutArea(idx)
 
     #END overview Window
+
+
+    #when closed auto save and export
+    async def on_close(self, widget):
+        print("TEST")
+        self.save(widget)
+        await self.exportNAS(widget)
+        return True
 
 
 
